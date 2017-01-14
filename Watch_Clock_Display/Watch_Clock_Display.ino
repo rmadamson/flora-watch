@@ -23,14 +23,15 @@ void setup() {
   GPS.sendCommand(PMTK_SET_NMEA_OUTPUT_RMCGGA);
   GPS.sendCommand(PMTK_SET_NMEA_UPDATE_1HZ);
 
-}
-
-void loop() {
-
+  
 //  while(!Serial);
 //    delay(500);
 //  Serial.begin(9600);
 //  Serial.println(F("Started"));
+
+}
+
+void loop() {
 
 //  for(uint32_t t = 0; t < 2000000; t++) {
 //    displaytime( t );
@@ -42,16 +43,31 @@ void loop() {
     // a tricky thing here is if we print the NMEA sentence, or data
     // we end up not listening and catching other sentences!
     // so be very wary if using OUTPUT_ALLDATA and trytng to print out data
-    Serial.println(GPS.lastNMEA()); // this also sets the newNMEAreceived() flag to false
+    // Serial.println(GPS.lastNMEA()); // this also sets the newNMEAreceived() flag to false
     if (!GPS.parse(GPS.lastNMEA())) // this also sets the newNMEAreceived() flag to false
       return; // we can fail to parse a sentence in which case we should just wait for another
   }
-  displaytime( (GPS.hour-5)%12, GPS.minute, GPS.seconds );
+
+  if( timer > millis() ) timer = millis(); // Handle timer wraps
+  if( millis()-timer > 1000 ) {
+    uint8_t hours = GPS.hour%12;
+    uint8_t minutes = GPS.minute;
+    uint8_t seconds = GPS.seconds;
+    displaytime( hours, minutes, seconds );
+    timer = millis();
+  }
 
 }
 
-void displaytime( uint8_t hours, uint8_t minutes, uint8_t seconds ) {
+void displaytime( uint16_t hours, uint16_t minutes, uint16_t seconds ) {
 
+  // Adjust for timezone
+  hours = (hours - 4) % 12;
+  //Serial.println("---");
+  //Serial.println( hours );
+  //Serial.println( minutes );
+  //Serial.println( seconds );
+  
   uint8_t red[NUMPIXELS];
   uint8_t green[NUMPIXELS];
   uint8_t blue[NUMPIXELS];
@@ -62,8 +78,8 @@ void displaytime( uint8_t hours, uint8_t minutes, uint8_t seconds ) {
   
   uint16_t numbuckets  = NUMPIXELS;
   
-  sethand( red,   hours,   numbuckets, 60*60*12/numbuckets );
-  sethand( green, minutes, numbuckets, 60*60/numbuckets );
+  sethand( red,   hours*60*12,   numbuckets, 60*60*12/numbuckets );
+  sethand( green, minutes*60, numbuckets, 60*60/numbuckets );
   sethand( blue,  seconds, numbuckets, 60/numbuckets );
 
   for( uint16_t i=0; i < numbuckets; i++ ) {
