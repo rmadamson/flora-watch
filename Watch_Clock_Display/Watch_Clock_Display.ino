@@ -1,4 +1,6 @@
 #include <Adafruit_NeoPixel.h>
+#include <Adafruit_GPS.h>
+
 
 #define PIN 12
 #define NUMPIXELS 12
@@ -6,10 +8,21 @@
 
 Adafruit_NeoPixel strip = Adafruit_NeoPixel(12, PIN, NEO_GRB + NEO_KHZ800);
 
+// what's the name of the hardware serial port?
+#define GPSSerial Serial1
+
+// Connect to the GPS on the hardware port
+Adafruit_GPS GPS(&GPSSerial);
+uint32_t timer = millis();
 
 void setup() {
   strip.begin();
   strip.show(); // Initialize all pixels to 'off'
+
+  GPS.begin(9600);
+  GPS.sendCommand(PMTK_SET_NMEA_OUTPUT_RMCGGA);
+  GPS.sendCommand(PMTK_SET_NMEA_UPDATE_1HZ);
+
 }
 
 void loop() {
@@ -19,14 +32,25 @@ void loop() {
 //  Serial.begin(9600);
 //  Serial.println(F("Started"));
 
-  for(uint32_t t = 0; t < 2000000; t++) {
-    displaytime( t );
-    delay(5);
+//  for(uint32_t t = 0; t < 2000000; t++) {
+//    displaytime( t );
+//    delay(5);
+//  }
+  // read data from the GPS in the 'main loop'
+  char c = GPS.read();
+  if (GPS.newNMEAreceived()) {
+    // a tricky thing here is if we print the NMEA sentence, or data
+    // we end up not listening and catching other sentences!
+    // so be very wary if using OUTPUT_ALLDATA and trytng to print out data
+    Serial.println(GPS.lastNMEA()); // this also sets the newNMEAreceived() flag to false
+    if (!GPS.parse(GPS.lastNMEA())) // this also sets the newNMEAreceived() flag to false
+      return; // we can fail to parse a sentence in which case we should just wait for another
   }
-  
+  displaytime( (GPS.hour-5)%12, GPS.minute, GPS.seconds );
+
 }
 
-void displaytime( uint32_t t ) {
+void displaytime( uint8_t hours, uint8_t minutes, uint8_t seconds ) {
 
   uint8_t red[NUMPIXELS];
   uint8_t green[NUMPIXELS];
@@ -36,10 +60,6 @@ void displaytime( uint32_t t ) {
   memset( green, 0, sizeof(green) );
   memset( blue, 0, sizeof(blue) );
   
-  uint16_t seconds = t % 60;
-  uint16_t minutes = t % (60 * 60);
-  uint16_t hours   = t % (60 * 60 * 12);
-
   uint16_t numbuckets  = NUMPIXELS;
   
   sethand( red,   hours,   numbuckets, 60*60*12/numbuckets );
